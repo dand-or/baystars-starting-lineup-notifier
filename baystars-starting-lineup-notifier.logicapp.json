@@ -1,0 +1,119 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+      "$connections": {
+          "defaultValue": {},
+          "type": "Object"
+      }
+  },
+  "triggers": {
+      "繰り返し": {
+          "recurrence": {
+              "frequency": "Day",
+              "interval": 1,
+              "schedule": {
+                  "hours": [
+                      "9",
+                      "10",
+                      "11",
+                      "12",
+                      "13",
+                      "14",
+                      "15",
+                      "16",
+                      "17",
+                      "18",
+                      "19"
+                  ],
+                  "minutes": [
+                      0,
+                      5,
+                      10,
+                      15,
+                      20,
+                      25,
+                      30,
+                      35,
+                      40,
+                      45,
+                      50,
+                      55
+                  ]
+              },
+              "timeZone": "Tokyo Standard Time"
+          },
+          "type": "Recurrence"
+      }
+  },
+  "actions": {
+      "For_each": {
+          "foreach": "@body('ツイートの検索')",
+          "actions": {
+              "条件": {
+                  "actions": {
+                      "投稿メッセージ": {
+                          "runAfter": {},
+                          "type": "ApiConnection",
+                          "inputs": {
+                              "host": {
+                                  "connection": {
+                                      "name": "@parameters('$connections')['slack']['connectionId']"
+                                  }
+                              },
+                              "method": "post",
+                              "path": "/chat.postMessage",
+                              "queries": {
+                                  "channel": "your-slack-channel-name",
+                                  "text": "https://twitter.com/ydb_yokohama/status/@{items('For_each')?['TweetId']}"
+                              }
+                          }
+                      }
+                  },
+                  "runAfter": {},
+                  "expression": {
+                      "and": [
+                          {
+                              "lessOrEquals": [
+                                  "@addHours(items('For_each')?['CreatedAtIso'],9)",
+                                  "@addHours(utcNow(), 9)"
+                              ]
+                          },
+                          {
+                              "greaterOrEquals": [
+                                  "@addHours(items('For_each')?['CreatedAtIso'],9)",
+                                  "@addMinutes(addHours(utcNow(), 9), -5)"
+                              ]
+                          }
+                      ]
+                  },
+                  "type": "If"
+              }
+          },
+          "runAfter": {
+              "ツイートの検索": [
+                  "Succeeded"
+              ]
+          },
+          "type": "Foreach"
+      },
+      "ツイートの検索": {
+          "runAfter": {},
+          "type": "ApiConnection",
+          "inputs": {
+              "host": {
+                  "connection": {
+                      "name": "@parameters('$connections')['twitter_1']['connectionId']"
+                  }
+              },
+              "method": "get",
+              "path": "/searchtweets",
+              "queries": {
+                  "maxResults": 1,
+                  "searchQuery": "STARTING LINEUP (from:ydb_yokohama)"
+              }
+          }
+      }
+  },
+  "outputs": {}
+}
